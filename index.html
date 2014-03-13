@@ -1,0 +1,386 @@
+
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		 <meta name="mobile-web-app-capable" content="yes">
+    	<meta name="apple-mobile-web-app-capable" content="yes">
+    	<meta name="format-detection" content="telephone=no">
+    	<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    	<link id="shortcut-icon" rel="shortcut icon" sizes="128x128" href="http://maps.esri.com/SP_DEMOS/agol/globe/earth.png"> 
+    	<link id="touch-icon" rel="apple-touch-icon" sizes="128x128" href="http://maps.esri.com/SP_DEMOS/agol/globe/earth.png">
+		<title>Floating Maps</title>
+		<style>
+			html, body {
+				height: 100%;
+			}
+
+			body {
+				background-color: #000000;
+				margin: 0;
+				font-family: Arial;
+				overflow: hidden;
+			}
+
+			#search {
+				position: absolute;
+				bottom: 30px;
+				width: 100%;
+				text-align: center;
+			}
+
+			#search input {
+				color: #ffffff;
+				background-color: transparent;
+				border: 1px solid #0080ff;
+				padding: 10px;
+				font-size: 20px;
+				text-transform: uppercase;
+				-webkit-border-radius: 0px; /* workaround for ios safari */
+			}
+
+			#search button {
+				color: #0080ff;
+				background-color: transparent;
+				border: 1px solid #0080ff;
+				padding: 10px;
+				font-size: 20px;
+				text-transform: uppercase;
+				cursor: pointer;
+			}
+		</style>
+	</head>
+	<body>
+		<script src="js/libs/three.min.js"></script>
+
+		<script src="js/libs/tween.min.js"></script>
+		<script src="js/CSS3DRenderer.js"></script>
+
+		<div id="container"></div>
+		<div id="search"><input id="query" type="text" placeholder="Features Maps" value=""><button id="button">search</button></div>
+
+		<script>
+		 	if(document.documentElement.clientHeight && window.innerHeight != document.documentElement.clientHeight) {
+		 		//alert("fixing window height and width");
+          		document.documentElement.style.height = window.innerHeight + "px";
+        	}
+			var camera, scene, renderer;
+			var player;
+			var clickEvent = ('ontouchstart' in window ? 'touchend' : 'click');
+
+			var auto = true;
+
+			var Element = function ( entry ) {
+
+				if(entry.type !== "Web Map" || entry.access !== "public") { return }
+
+				var height = '200px';
+				var width = '300px';
+
+				var dom = document.createElement( 'div' );
+				dom.style.width = width;
+				dom.style.height = height;
+
+				var image = document.createElement( 'img' );
+				image.style.position = 'absolute';
+				image.style.width = width;
+				image.style.height = height;
+				image.src = "http://www.arcgis.com/sharing/rest/content/items/" + entry.id + "/info/" + entry.thumbnail;
+				dom.appendChild( image );
+
+				var button = document.createElement( 'img' );
+				button.style.position = 'absolute';
+				button.style.width = "96px";
+				button.style.height = "96px";
+				button.style.left = ( ( parseInt(width) - 96 ) / 2 ) + 'px';
+				button.style.top = ( ( parseInt(height)- 96 ) / 2 ) + 'px';
+				button.style.visibility = 'hidden';
+				button.style.WebkitFilter = 'grayscale()';
+				button.src = 'earth.png';
+				dom.appendChild( button );
+
+				var blocker = document.createElement( 'div' );
+				blocker.style.position = 'absolute';				
+				blocker.style.width = width;
+				blocker.style.height = height;				
+				blocker.style.background = 'rgba(0,0,0,0.5)';
+				blocker.style.cursor = 'pointer';
+				dom.appendChild( blocker );
+
+				var object = new THREE.CSS3DObject( dom );
+				object.position.x = Math.random() * 4000 - 2000;
+				// object.position.y = Math.random() * 2000 - 1000;
+				object.position.y = 3000;
+				object.position.z = Math.random() * - 5000;
+
+				//
+
+				image.addEventListener( 'load', function ( event ) {
+
+					button.style.visibility = 'visible';
+
+					new TWEEN.Tween( object.position )
+						.to( { y: Math.random() * 2000 - 1000 }, 2000 )
+						.easing( TWEEN.Easing.Exponential.Out )
+						.start();
+
+				}, false );
+
+				dom.addEventListener( 'mouseover', function () {
+
+					button.style.WebkitFilter = '';
+					blocker.style.background = 'rgba(0,0,0,0)';
+
+				}, false );
+
+				dom.addEventListener( 'mouseout', function () {
+
+					button.style.WebkitFilter = 'grayscale()';
+					blocker.style.background = 'rgba(0,0,0,0.75)';
+
+				}, false );
+
+				dom.addEventListener( 'mouseover', function(event) {
+					console.log(object.position);
+				});
+
+				dom.addEventListener( clickEvent, function ( event ) {
+
+					
+
+					event.stopPropagation();
+
+					auto = false;
+
+					if ( player !== undefined ) {
+
+						player.parentNode.removeChild( player );
+						player = undefined;
+
+					}
+
+					player = document.createElement( 'iframe' );
+					player.style.position = 'absolute';
+					//player.style.width = '480px';
+					//player.style.height = '360px';
+					player.style.width = window.innerWidth && window.innerWidth < 480 ? window.innerWidth * 0.7 + "px" : "480px";
+					player.style.height = window.innerHeight && window.innerHeight < 300 ? window.innerHeight * 0.7 + "px" : "360px";
+					
+					player.style.border = '0px';
+					player.src = 'http://maps.esri.com/SP_DEMOS/impress_eoe/embedViewer.html?webmap=' + entry.id;
+					this.appendChild( player );
+
+					//
+
+					var prev = object.position.z + 400;
+
+					new TWEEN.Tween( camera.position )
+						.to( { x: object.position.x, y: object.position.y - 25 }, 1500 )
+						.easing( TWEEN.Easing.Exponential.Out )
+						.start();
+
+					new TWEEN.Tween( { value: prev } )
+						.to( { value: 0  }, 2000 )
+						.onUpdate( function () {
+							move( this.value - prev );
+							prev = this.value;
+
+						} )
+						.easing( TWEEN.Easing.Exponential.Out )
+						.start();
+
+				}, false );
+
+				return object;
+
+			};
+
+			init();
+			animate();
+
+			function init() {
+
+				camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 1, 5000 );
+				camera.position.y = - 25;
+
+				scene = new THREE.Scene();
+
+				renderer = new THREE.CSS3DRenderer();
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				renderer.domElement.style.position = 'absolute';
+				renderer.domElement.style.top = 0;
+				document.getElementById( 'container' ).appendChild( renderer.domElement );
+
+				//
+
+				var query = document.getElementById( 'query' );
+				query.addEventListener( 'keyup', function ( event ) {
+
+					if ( event.keyCode === 13 ) {
+
+						search( query.value );
+
+					}
+
+				}, false );
+
+				
+
+				var button = document.getElementById( 'button' );
+				button.addEventListener( clickEvent, function ( event ) {
+
+					search( query.value );
+
+				}, false );
+
+				if ( window.location.hash.length > 0 ) {
+
+					query.value = window.location.hash.substr( 1 );
+
+				}
+
+				search( query.value );
+
+				document.body.addEventListener( 'mousewheel', onMouseWheel, false );
+
+
+				
+
+				document.body.addEventListener( clickEvent, function ( event ) {
+				
+					auto = true;
+
+					if ( player !== undefined ) {
+
+						player.parentNode.removeChild( player );
+						player = undefined;
+
+					}
+
+					new TWEEN.Tween( camera.position )
+							.to( { x: 0, y: -25 }, 1500 )
+							.easing( TWEEN.Easing.Exponential.Out )
+							.start();
+
+				}, false );
+
+				window.addEventListener( 'resize', onWindowResize, false );
+
+			}
+
+			function search( query ) {
+
+				window.location.hash = query;
+
+				for ( var i = 0, l = scene.children.length; i < l; i ++ ) {
+
+					( function () {
+
+						var object = scene.children[ i ];
+						var delay = Math.random() * 100;
+
+						new TWEEN.Tween( object.position )
+							.to( { y: - 2000 }, 1000 )
+							.delay( delay )
+							.easing( TWEEN.Easing.Exponential.In )
+							.onComplete( function () {
+
+								scene.remove( object );
+
+							} )
+							.start();
+
+					} )();
+
+				}
+
+				var request = new XMLHttpRequest();
+				request.addEventListener( 'load', onData, false );
+				if(query) 
+					//request.open( 'GET', 'https://gdata.youtube.com/feeds/api/videos?v=2&alt=json&max-results=10&q=' + query, true );
+					request.open('GET','http://www.arcgis.com/sharing/rest/search?num=200&start=0&sortField=numViews&sortOrder=desc&type=Web%20Map&f=json&q=' + query, true);
+				else 
+					request.open('GET','http://www.arcgis.com/sharing/rest/search?num=200&start=0&sortField=numViews&sortOrder=desc&q=group%3Ab8787a74b4d74f7fb9b8fac918735153&type=Web%20Map&f=json', true)
+				request.send( null );
+
+			}
+
+			function onData( event ) {
+
+				var data = JSON.parse( event.target.responseText );
+				var entries = data.results;
+
+				if(entries.length == 0) {
+					alert("No results for your query");
+					window.location.hash = "";
+					query.value = "";
+					search("");
+					return;
+				}
+
+				for ( var i = 0; i < entries.length; i ++ ) {
+
+					var object = new Element( entries[ i ] );
+					scene.add( object );
+
+				}
+
+			}
+
+			function move( delta ) {
+
+				for ( var i = 0; i < scene.children.length; i ++ ) {
+
+					var object = scene.children[ i ];
+
+					object.position.z += delta;
+
+					if ( object.position.z > 0 ) {
+
+						object.position.z -= 5000;
+
+					} else if ( object.position.z < - 5000 ) {
+
+						object.position.z += 5000;
+
+					}
+
+				}
+
+			}
+
+			function onMouseWheel( event ) {
+
+				move( event.wheelDelta );
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				TWEEN.update();
+
+				if ( auto === true ) {
+
+					move( 1 );
+
+				}
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+	</body>
+</html>
